@@ -58,7 +58,7 @@
     --board-shadow: inset 0 2px 12px rgba(0,0,0,.4), 0 6px 20px rgba(0,0,0,.45);
     --title-shadow: 0 1px 0 rgba(0,0,0,.6);
     --accent:#ffb347;
-    --card-bg:#2c2133;
+    --card-bg:#1a141f;
   }
   * { margin:0; padding:0; box-sizing:border-box; -webkit-tap-highlight-color:transparent; }
   html, body { height:100%; }
@@ -164,6 +164,7 @@
   <header>
     <h1>🍓 3 в ряд дзен</h1>
     <div class="hdr-btns">
+      <button id="installBtn" class="icon-btn" aria-label="Установить" style="display:none;">📲</button>
       <button id="themeBtn" class="icon-btn" aria-label="Сменить тему">🌙</button>
       <button id="shuffleBtn" class="icon-btn" aria-label="Перемешать">🔀</button>
       <button id="newBtn" class="icon-btn" aria-label="Новая игра">🔄</button>
@@ -198,13 +199,13 @@ const SWAP_MS = 190, FALL_MS = 300, POP_MS = 260;
 const START_MOVES = 20;
 
 const FRUITS = [
-  { e:'🍎', bg:'#ffd0d0' },
-  { e:'🍌', bg:'#fff0b3' },
-  { e:'🍇', bg:'#e3d2ff' },
-  { e:'🍊', bg:'#ffd9a8' },
-  { e:'🍓', bg:'#ffc3d4' },
-  { e:'🍉', bg:'#c8f2c8' },
-  { e:'🥝', bg:'#e8f0c0' }
+  { e:'🍎', bg:'#b85040' },
+  { e:'🍌', bg:'#c9a826' },
+  { e:'🍇', bg:'#783f9e' },
+  { e:'🍊', bg:'#d9781e' },
+  { e:'🍓', bg:'#c93a5a' },
+  { e:'🍉', bg:'#4a8f4a' },
+  { e:'🥝', bg:'#8fa84a' }
 ];
 
 const $ = id => document.getElementById(id);
@@ -665,6 +666,28 @@ themeBtn.addEventListener('click', () => {
   const t = document.documentElement.getAttribute('data-theme') === 'dark' ? 'light' : 'dark';
   try { localStorage.setItem('fruit-puzzle-theme', t); } catch (e) {}
   applyTheme(t);
+});
+
+/* ---------- PWA: кнопка установки ---------- */
+let deferredPrompt = null;
+const installBtn = $('installBtn');
+window.addEventListener('beforeinstallprompt', (e) => {
+  e.preventDefault();
+  deferredPrompt = e;
+  if (installBtn) installBtn.style.display = 'flex';
+});
+if (installBtn) {
+  installBtn.addEventListener('click', async () => {
+    if (!deferredPrompt) return;
+    deferredPrompt.prompt();
+    const { outcome } = await deferredPrompt.userChoice;
+    if (outcome === 'accepted' && installBtn) installBtn.style.display = 'none';
+    deferredPrompt = null;
+  });
+}
+window.addEventListener('appinstalled', () => {
+  if (installBtn) installBtn.style.display = 'none';
+  deferredPrompt = null;
 });
 
 /* ---------- старт ---------- */
