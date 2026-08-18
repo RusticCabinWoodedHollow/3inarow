@@ -589,6 +589,15 @@ function loadGame() {
         board[r].push(t);
       }
     }
+    // Пересчитываем layout для корректного отображения на мобильных
+    cell = Math.floor(Math.min(boardEl.clientWidth, boardEl.clientHeight) / COLS);
+    boardEl.style.setProperty('--cell', cell + 'px');
+    boardEl.querySelectorAll('.tile').forEach(t => {
+      t.el.style.width = cell + 'px';
+      t.el.style.height = cell + 'px';
+      t.sp.style.width = cell + 'px';
+      t.sp.style.height = cell + 'px';
+    });
     hud();
     return true;
   } catch (e) {
