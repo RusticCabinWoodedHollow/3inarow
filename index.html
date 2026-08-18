@@ -58,7 +58,7 @@
     --board-shadow: inset 0 2px 12px rgba(0,0,0,.4), 0 6px 20px rgba(0,0,0,.45);
     --title-shadow: 0 1px 0 rgba(0,0,0,.6);
     --accent:#ffb347;
-    --card-bg:#2c2133;
+    --card-bg:#1a141f;
   }
   * { margin:0; padding:0; box-sizing:border-box; -webkit-tap-highlight-color:transparent; }
   html, body { height:100%; }
@@ -164,6 +164,7 @@
   <header>
     <h1>🍓 3 в ряд дзен</h1>
     <div class="hdr-btns">
+      <button id="installBtn" class="icon-btn" aria-label="Установить" style="display:none;">📲</button>
       <button id="themeBtn" class="icon-btn" aria-label="Сменить тему">🌙</button>
       <button id="shuffleBtn" class="icon-btn" aria-label="Перемешать">🔀</button>
       <button id="newBtn" class="icon-btn" aria-label="Новая игра">🔄</button>
@@ -198,13 +199,13 @@ const SWAP_MS = 190, FALL_MS = 300, POP_MS = 260;
 const START_MOVES = 20;
 
 const FRUITS = [
-  { e:'🍎', bg:'#ffd0d0' },
-  { e:'🍌', bg:'#fff0b3' },
-  { e:'🍇', bg:'#e3d2ff' },
-  { e:'🍊', bg:'#ffd9a8' },
-  { e:'🍓', bg:'#ffc3d4' },
-  { e:'🍉', bg:'#c8f2c8' },
-  { e:'🥝', bg:'#e8f0c0' }
+  { e:'🍎', bg:'#b85040' },
+  { e:'🍌', bg:'#c9a826' },
+  { e:'🍇', bg:'#783f9e' },
+  { e:'🍊', bg:'#d9781e' },
+  { e:'🍓', bg:'#c93a5a' },
+  { e:'🍉', bg:'#4a8f4a' },
+  { e:'🥝', bg:'#8fa84a' }
 ];
 
 const $ = id => document.getElementById(id);
@@ -434,6 +435,7 @@ async function resolveBoard(my) {
     const pts = m.size * 10 * chain + (chain - 1) * 25 * m.size;
     score += pts;
     hud();
+    saveGame();
     floatScore(pts, m);
     if (navigator.vibrate) navigator.vibrate(12);
     m.forEach(key => {
@@ -508,6 +510,7 @@ async function trySwap(a, b) {
   }
   movesLeft--;
   hud();
+  saveGame();
   await resolveBoard(my);
   if (gameId !== my) return;
   busy = false;
@@ -538,6 +541,7 @@ function showOverlay(kind) {
       level++;
       movesLeft = START_MOVES;
       hud();
+      localStorage.removeItem('fruit-puzzle-save');
       if (score >= targetFor(level)) showOverlay('levelup');
       else { overlay.classList.remove('show'); paused = false; }
     };
@@ -548,6 +552,7 @@ function showOverlay(kind) {
     ovBtn.textContent = 'Играть снова 🔄';
     ovBtn.onclick = () => {
       overlay.classList.remove('show');
+      localStorage.removeItem('fruit-puzzle-save');
       newGame();
     };
   }
@@ -555,6 +560,42 @@ function showOverlay(kind) {
 }
 
 /* ---------- новый игровой процесс ---------- */
+function saveGame() {
+  try {
+    const state = {
+      score, level, movesLeft,
+      board: board.map(row => row.map(t => t ? t.fruit : null))
+    };
+    localStorage.setItem('fruit-puzzle-save', JSON.stringify(state));
+  } catch (e) {}
+}
+
+function loadGame() {
+  try {
+    const data = localStorage.getItem('fruit-puzzle-save');
+    if (!data) return false;
+    const state = JSON.parse(data);
+    if (!state || !state.board) return false;
+    score = state.score || 0;
+    level = state.level || 1;
+    movesLeft = state.movesLeft || START_MOVES;
+    boardEl.querySelectorAll('.tile, .float').forEach(e => e.remove());
+    board = [];
+    for (let r = 0; r < ROWS; r++) {
+      board.push([]);
+      for (let c = 0; c < COLS; c++) {
+        const fruit = state.board[r] && state.board[r][c] !== null ? state.board[r][c] : rand(FRUITS.length);
+        const t = makeTile(fruit, r, c);
+        board[r].push(t);
+      }
+    }
+    hud();
+    return true;
+  } catch (e) {
+    return false;
+  }
+}
+
 function newGame() {
   gameId++;
   busy = false; over = false; paused = false;
@@ -577,6 +618,7 @@ function newGame() {
     }
   }
   hud();
+  localStorage.removeItem('fruit-puzzle-save');
 }
 
 /* ---------- управление (тач + мышь) ---------- */
@@ -667,8 +709,64 @@ themeBtn.addEventListener('click', () => {
   applyTheme(t);
 });
 
+/* ---------- PWA: кнопка установки ---------- */
+let deferredPrompt = null;
+const installBtn = $('installBtn');
+window.addEventListener('beforeinstallprompt', (e) => {
+  e.preventDefault();
+  deferredPrompt = e;
+  if (installBtn) installBtn.style.display = 'flex';
+});
+if (installBtn) {
+  installBtn.addEventListener('click', async () => {
+    if (!deferredPrompt) return;
+    deferredPrompt.prompt();
+    const { outcome } = await deferredPrompt.userChoice;
+    if (outcome === 'accepted' && installBtn) installBtn.style.display = 'none';
+    deferredPrompt = null;
+  });
+}
+window.addEventListener('appinstalled', () => {
+  if (installBtn) installBtn.style.display = 'none';
+  deferredPrompt = null;
+});
+
 /* ---------- старт ---------- */
-newGame();
+(function initGame() {
+  const data = localStorage.getItem('fruit-puzzle-save');
+  if (data) {
+    try {
+      const state = JSON.parse(data);
+      if (state && state.board) {
+        showContinueOverlay();
+        return;
+      }
+    } catch (e) {}
+  }
+  newGame();
+})();
+
+function showContinueOverlay() {
+  ovIcon.textContent = '🎮';
+  ovTitle.textContent = 'Есть сохранённая игра';
+  ovText.innerHTML = 'Счёт: <b>' + JSON.parse(localStorage.getItem('fruit-puzzle-save')).score + '</b><br>Уровень: <b>' + JSON.parse(localStorage.getItem('fruit-puzzle-save')).level + '</b><br>Ходы: <b>' + JSON.parse(localStorage.getItem('fruit-puzzle-save')).movesLeft + '</b>';
+  ovBtn.innerHTML = 'Продолжить ▶<br><span style="font-size:14px;font-weight:600">или Новая игра</span>';
+  ovBtn.onclick = () => {
+    overlay.classList.remove('show');
+    loadGame();
+  };
+  const newBtn2 = document.createElement('button');
+  newBtn2.id = 'ovBtn2';
+  newBtn2.textContent = 'Новая игра 🔄';
+  newBtn2.style.cssText = 'margin-top:12px;border:none;cursor:pointer;background:linear-gradient(180deg,#888,#666);color:#fff;font-size:15px;font-weight:700;padding:11px 24px;border-radius:14px;box-shadow:0 4px 12px rgba(0,0,0,.3);transition:transform .15s;';
+  newBtn2.onclick = () => {
+    overlay.classList.remove('show');
+    localStorage.removeItem('fruit-puzzle-save');
+    newGame();
+  };
+  ovCard.appendChild(newBtn2);
+  overlay.classList.add('show');
+}
 })();
 </script>
 </body>
